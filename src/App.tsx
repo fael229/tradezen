@@ -71,7 +71,7 @@ export function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard trades={trades} stats={stats} dailyStats={dailyStats} />;
+        return <Dashboard trades={trades} />;
       case 'journal':
         return (
           <Journal
@@ -94,7 +94,7 @@ export function App() {
       case 'settings':
         return <Settings onClearData={clearAllTrades} />;
       default:
-        return <Dashboard trades={trades} stats={stats} dailyStats={dailyStats} />;
+        return <Dashboard trades={trades} />;
     }
   };
 
