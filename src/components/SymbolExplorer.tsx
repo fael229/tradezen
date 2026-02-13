@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Search, TrendingUp, TrendingDown, Star, StarOff, ExternalLink, LayoutGrid } from 'lucide-react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
+import GridLayout from 'react-grid-layout';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { Responsive, WidthProvider } = GridLayout as any;
 
 import { SymbolSearch } from './SymbolSearch';
 import { searchTradingViewSymbols, getTypeColor, type TradingViewSymbol } from '../lib/tradingviewApi';
@@ -39,13 +39,13 @@ export function SymbolExplorer() {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : ['EURUSD', 'GBPJPY', 'XAUUSD', 'BTCUSD'];
   });
-  
+
   // Grid layout state
   const [layouts, setLayouts] = useState(DEFAULT_LAYOUTS);
 
   const handleSymbolChange = async (symbol: string) => {
     setSelectedSymbol(symbol);
-    
+
     if (symbol.length >= 1) {
       setLoading(true);
       try {
@@ -69,7 +69,7 @@ export function SymbolExplorer() {
     const newWatchlist = watchlist.includes(symbol)
       ? watchlist.filter((s) => s !== symbol)
       : [...watchlist, symbol];
-    
+
     setWatchlist(newWatchlist);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newWatchlist));
   };
@@ -81,7 +81,8 @@ export function SymbolExplorer() {
     window.open(url, '_blank');
   };
 
-  const handleLayoutChange = (layout: any, allLayouts: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleLayoutChange = (_currentLayout: any, allLayouts: any) => {
     setLayouts(allLayouts);
   };
 
@@ -99,13 +100,13 @@ export function SymbolExplorer() {
           <Search className="w-5 h-5 text-emerald-500" />
           Search Symbols
         </h2>
-        
+
         <SymbolSearch
           value={selectedSymbol}
           onChange={handleSymbolChange}
           placeholder="Search for stocks, forex, crypto, futures..."
         />
-        
+
         {/* Symbol Details */}
         {loading && (
           <div className="mt-4 p-4 bg-slate-50 rounded-lg">
@@ -118,7 +119,7 @@ export function SymbolExplorer() {
             </div>
           </div>
         )}
-        
+
         {symbolDetails && !loading && (
           <div className="mt-4">
             <div className="p-4 bg-gradient-to-r from-slate-50 to-emerald-50 rounded-lg border border-emerald-100 mb-6">
@@ -140,7 +141,7 @@ export function SymbolExplorer() {
                     </span>
                   )}
                 </div>
-                
+
                 {/* Info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -161,7 +162,7 @@ export function SymbolExplorer() {
                     <span className="text-xs font-mono text-slate-400">{symbolDetails.fullName}</span>
                   </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div className="flex flex-col gap-2">
                   <button
@@ -204,7 +205,7 @@ export function SymbolExplorer() {
                   </h3>
                   <p className="text-sm text-slate-500">Drag to reorder • Resize from bottom-right</p>
                 </div>
-                
+
                 <div className="bg-slate-100 rounded-xl p-2 min-h-[600px] border border-slate-200">
                   <ResponsiveGridLayout
                     className="layout"
@@ -221,9 +222,9 @@ export function SymbolExplorer() {
                         <LayoutGrid className="w-3 h-3 text-slate-400" />
                       </div>
                       <div className="flex-1 relative">
-                        <TradingViewWidget 
-                          symbol={symbolDetails.symbol} 
-                          interval="5" 
+                        <TradingViewWidget
+                          symbol={symbolDetails.symbol}
+                          interval="5"
                           containerId={`tv-widget-5m-${symbolDetails.symbol}`}
                         />
                       </div>
@@ -234,9 +235,9 @@ export function SymbolExplorer() {
                         <LayoutGrid className="w-3 h-3 text-slate-400" />
                       </div>
                       <div className="flex-1 relative">
-                        <TradingViewWidget 
-                          symbol={symbolDetails.symbol} 
-                          interval="15" 
+                        <TradingViewWidget
+                          symbol={symbolDetails.symbol}
+                          interval="15"
                           containerId={`tv-widget-15m-${symbolDetails.symbol}`}
                         />
                       </div>
@@ -247,9 +248,9 @@ export function SymbolExplorer() {
                         <LayoutGrid className="w-3 h-3 text-slate-400" />
                       </div>
                       <div className="flex-1 relative">
-                        <TradingViewWidget 
-                          symbol={symbolDetails.symbol} 
-                          interval="60" 
+                        <TradingViewWidget
+                          symbol={symbolDetails.symbol}
+                          interval="60"
                           containerId={`tv-widget-1h-${symbolDetails.symbol}`}
                         />
                       </div>
