@@ -7,36 +7,55 @@ export function useTradeStore() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load trades from Supabase on mount
-  useEffect(() => {
-    const loadTrades = async () => {
-      setLoading(true);
-      try {
-        const data = await supabaseApi.fetchTrades();
-        if (data && data.length > 0) {
-          setTrades(data);
-        } else {
-          // If no trades in Supabase, check localStorage as fallback or use demo data
-          const stored = localStorage.getItem('tradezella_trades');
-          if (stored) {
+  const loadTrades = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+      if (!session) {
+        setTrades([]);
+        setLoading(false);
+        return;
+      }
+
+      const data = await supabaseApi.fetchTrades();
+      if (data && data.length > 0) {
+        setTrades(data);
+      } else {
+        // Only check localStorage if no trades in Supabase
+        const stored = localStorage.getItem('tradezella_trades');
+        if (stored) {
+          try {
             const localTrades = JSON.parse(stored);
             setTrades(localTrades);
-            // Optionally sync to Supabase if it's the first time
-            // await supabaseApi.bulkCreateTrades(localTrades);
-          } else {
-            const demoTrades = generateMockTrades();
-            setTrades(demoTrades);
+          } catch (e) {
+            setTrades([]);
           }
+        } else {
+          // If a new user with no trades anywhere, we could show demo data or empty
+          // For a clean personal journal, empty is better.
+          setTrades([]);
         }
-      } catch (error) {
-        console.error('Error loading trades from Supabase:', error);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    loadTrades();
+    } catch (error) {
+      console.error('Error loading trades from Supabase:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Load trades on mount and sign in
+  useEffect(() => {
+    loadTrades();
+
+    const { data: { subscription } } = supabaseApi.supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        loadTrades();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [loadTrades]);
 
   const addTrade = useCallback(async (trade: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newTrade = await supabaseApi.createTrade(trade);

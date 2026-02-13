@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { Journal } from './components/Journal';
@@ -9,12 +9,33 @@ import { Playbook } from './components/Playbook';
 import { Settings } from './components/Settings';
 import { SymbolExplorer } from './components/SymbolExplorer';
 import { useTradeStore } from './hooks/useTradeStore';
+import { Auth } from './components/Auth';
+import { supabase } from './lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
 export function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const {
     trades,
-    loading,
+    loading: tradesLoading,
     stats,
     dailyStats,
     addTrade,
@@ -24,8 +45,20 @@ export function App() {
     clearAllTrades,
   } = useTradeStore();
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   const renderPage = () => {
-    if (loading) {
+    if (tradesLoading) {
       return (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">

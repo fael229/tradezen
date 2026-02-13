@@ -1,5 +1,6 @@
 export interface Trade {
   id: string;
+  userId?: string;
   symbol: string;
   direction: 'long' | 'short';
   entryPrice: number;

@@ -13,12 +13,12 @@ export async function fetchTrades(): Promise<Trade[]> {
     .from('trades')
     .select('*')
     .order('entry_time', { ascending: false });
-  
+
   if (error) {
     console.error('Error fetching trades:', error);
     return [];
   }
-  
+
   return (data || []).map(mapDbToTrade);
 }
 
@@ -28,12 +28,12 @@ export async function createTrade(trade: Omit<Trade, 'id' | 'createdAt' | 'updat
     .insert([mapTradeToDb(trade)])
     .select()
     .single();
-  
+
   if (error) {
     console.error('Error creating trade:', error);
     return null;
   }
-  
+
   return mapDbToTrade(data);
 }
 
@@ -44,12 +44,12 @@ export async function updateTrade(id: string, updates: Partial<Trade>): Promise<
     .eq('id', id)
     .select()
     .single();
-  
+
   if (error) {
     console.error('Error updating trade:', error);
     return null;
   }
-  
+
   return mapDbToTrade(data);
 }
 
@@ -58,12 +58,12 @@ export async function deleteTrade(id: string): Promise<boolean> {
     .from('trades')
     .delete()
     .eq('id', id);
-  
+
   if (error) {
     console.error('Error deleting trade:', error);
     return false;
   }
-  
+
   return true;
 }
 
@@ -72,12 +72,12 @@ export async function bulkCreateTrades(trades: Omit<Trade, 'id' | 'createdAt' | 
     .from('trades')
     .insert(trades.map(mapTradeToDb))
     .select();
-  
+
   if (error) {
     console.error('Error bulk creating trades:', error);
     return [];
   }
-  
+
   return (data || []).map(mapDbToTrade);
 }
 
@@ -85,6 +85,7 @@ export async function bulkCreateTrades(trades: Omit<Trade, 'id' | 'createdAt' | 
 function mapDbToTrade(data: any): Trade {
   return {
     id: data.id,
+    userId: data.user_id,
     symbol: data.symbol,
     direction: data.direction,
     entryPrice: data.entry_price,
@@ -107,7 +108,8 @@ function mapDbToTrade(data: any): Trade {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTradeToDb(trade: Partial<Trade>): any {
   const dbTrade: Record<string, unknown> = {};
-  
+
+  if (trade.userId !== undefined) dbTrade.user_id = trade.userId;
   if (trade.symbol !== undefined) dbTrade.symbol = trade.symbol;
   if (trade.direction !== undefined) dbTrade.direction = trade.direction;
   if (trade.entryPrice !== undefined) dbTrade.entry_price = trade.entryPrice;
@@ -122,14 +124,16 @@ function mapTradeToDb(trade: Partial<Trade>): any {
   if (trade.status !== undefined) dbTrade.status = trade.status;
   if (trade.notes !== undefined) dbTrade.notes = trade.notes;
   if (trade.tags !== undefined) dbTrade.tags = trade.tags;
-  
+
   return dbTrade;
 }
 
-// SQL pour créer la table dans Supabase
+// SQL pour créer la table avec RLS dans Supabase
 export const CREATE_TABLE_SQL = `
+-- 1. Créer la table avec la colonne user_id
 CREATE TABLE IF NOT EXISTS trades (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
   symbol VARCHAR(50) NOT NULL,
   direction VARCHAR(10) NOT NULL CHECK (direction IN ('long', 'short')),
   entry_price DECIMAL(20, 6) NOT NULL,
@@ -148,7 +152,28 @@ CREATE TABLE IF NOT EXISTS trades (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index pour améliorer les performances
+-- 2. Activer la RLS (Row Level Security)
+ALTER TABLE trades ENABLE ROW LEVEL SECURITY;
+
+-- 3. Créer les politiques d'accès
+CREATE POLICY "Users can view their own trades" 
+ON trades FOR SELECT 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own trades" 
+ON trades FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own trades" 
+ON trades FOR UPDATE 
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own trades" 
+ON trades FOR DELETE 
+USING (auth.uid() = user_id);
+
+-- 4. Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_trades_user_id ON trades(user_id);
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 CREATE INDEX IF NOT EXISTS idx_trades_entry_time ON trades(entry_time);
