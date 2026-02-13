@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Star, StarOff, ExternalLink, LayoutGrid } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Star, StarOff, ExternalLink, LayoutGrid, Maximize2, Minimize2 } from 'lucide-react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 
 import { SymbolSearch } from './SymbolSearch';
@@ -37,6 +37,8 @@ export function SymbolExplorer() {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : ['EURUSD', 'GBPJPY', 'XAUUSD', 'BTCUSD'];
   });
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Grid layout state
   const [layouts, setLayouts] = useState(DEFAULT_LAYOUTS);
@@ -195,16 +197,35 @@ export function SymbolExplorer() {
               </div>
 
               {/* Charts Grid */}
-              <div className="mt-8">
+              <div className={cn(
+                "mt-8 transition-all duration-300",
+                isFullscreen ? "fixed inset-0 z-50 bg-white p-4 h-screen w-screen overflow-auto" : ""
+              )}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                     <LayoutGrid className="w-5 h-5 text-emerald-500" />
                     Chart Analysis
                   </h3>
-                  <p className="text-sm text-slate-500">Drag to reorder • Resize from bottom-right</p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-slate-500 hidden sm:block">Drag to reorder • Resize from bottom-right</p>
+                    <button
+                      onClick={() => setIsFullscreen(!isFullscreen)}
+                      className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
+                      title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-5 h-5" />
+                      ) : (
+                        <Maximize2 className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="bg-slate-100 rounded-xl p-2 min-h-[600px] border border-slate-200">
+                <div className={cn(
+                  "bg-slate-100 rounded-xl p-2 border border-slate-200",
+                  isFullscreen ? "h-[calc(100vh-80px)]" : "min-h-[600px]"
+                )}>
                   <ResponsiveGridLayout
                     className="layout"
                     layouts={layouts}
