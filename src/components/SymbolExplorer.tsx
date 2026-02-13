@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Search, TrendingUp, TrendingDown, Star, StarOff, ExternalLink, LayoutGrid } from 'lucide-react';
-import GridLayout from 'react-grid-layout';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { Responsive, WidthProvider } = GridLayout as any;
+import { Responsive, WidthProvider } from 'react-grid-layout';
 
 import { SymbolSearch } from './SymbolSearch';
 import { searchTradingViewSymbols, getTypeColor, type TradingViewSymbol } from '../lib/tradingviewApi';
