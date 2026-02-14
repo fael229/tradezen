@@ -15,13 +15,15 @@ import { cn } from '../utils/cn';
 
 interface ImportCSVProps {
   onImport: (trades: Trade[]) => void;
+  onClear?: () => Promise<void>;
 }
 
-export default function ImportCSV({ onImport }: ImportCSVProps) {
+export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
   const [importMode, setImportMode] = useState<'tradingview' | 'mt5'>('tradingview');
   const [balanceFile, setBalanceFile] = useState<File | null>(null);
   const [journalFile, setJournalFile] = useState<File | null>(null);
   const [mt5File, setMt5File] = useState<File | null>(null);
+  const [autoClear, setAutoClear] = useState(true);
 
   const [balanceEntries, setBalanceEntries] = useState<BalanceHistoryEntry[]>([]);
   const [journalEntries, setJournalEntries] = useState<OrderLogEntry[]>([]);
@@ -154,6 +156,10 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
     setImporting(true);
 
     try {
+      if (autoClear && onClear) {
+        await onClear();
+      }
+
       const now = new Date().toISOString();
       const trades: Trade[] = parsedTrades.map(trade => ({
         ...trade,
@@ -691,9 +697,20 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
           </div>
         )}
 
-        {/* Import Button */}
         {parsedTrades.length > 0 && (
-          <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row justify-end items-center gap-4">
+            {onClear && (
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoClear}
+                  onChange={(e) => setAutoClear(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                />
+                <span className="text-sm text-slate-700">Supprimer les données existantes avant l'import</span>
+              </label>
+            )}
+            
             <button
               onClick={handleImport}
               disabled={importing}

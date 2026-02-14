@@ -90,7 +90,7 @@ export function App() {
       case 'playbook':
         return <Playbook />;
       case 'import':
-        return <ImportCSV onImport={bulkAddTrades} />;
+        return <ImportCSV onImport={bulkAddTrades} onClear={clearAllTrades} />;
       case 'settings':
         return <Settings onClearData={clearAllTrades} />;
       default:
