@@ -128,7 +128,7 @@ export function Settings({ onClearData }: SettingsProps) {
             >
               {showSQL ? 'Hide' : 'Show'} SQL setup script
             </button>
-            
+
             {showSQL && (
               <div className="mt-3 p-4 bg-slate-900 rounded-lg overflow-x-auto">
                 <pre className="text-sm text-slate-300 whitespace-pre-wrap">
@@ -207,14 +207,12 @@ export function Settings({ onClearData }: SettingsProps) {
             </div>
             <button
               onClick={() => setNotifications(!notifications)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                notifications ? 'bg-emerald-500' : 'bg-slate-300'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${notifications ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
             >
               <span
-                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  notifications ? 'left-7' : 'left-1'
-                }`}
+                className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications ? 'left-7' : 'left-1'
+                  }`}
               />
             </button>
           </div>
@@ -255,14 +253,14 @@ export function Settings({ onClearData }: SettingsProps) {
             <div className="pt-4 border-t border-slate-100">
               <button
                 onClick={() => {
-                  if (window.confirm('Are you sure you want to delete ALL trades? This action cannot be undone.')) {
+                  if (window.confirm('Etes-vous sûr de vouloir supprimer TOUS les trades ? Cette action est irréversible.')) {
                     onClearData();
                   }
                 }}
                 className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
               >
                 <Trash2 className="w-4 h-4" />
-                Delete All Trades
+                Supprimer tous les trades
               </button>
             </div>
           )}
@@ -307,7 +305,7 @@ function exportData() {
 
 function exportTrades() {
   const trades = JSON.parse(localStorage.getItem('tradezella_trades') || '[]');
-  
+
   if (trades.length === 0) {
     alert('No trades to export');
     return;
