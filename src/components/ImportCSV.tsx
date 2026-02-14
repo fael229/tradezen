@@ -157,6 +157,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
       const now = new Date().toISOString();
       const trades: Trade[] = parsedTrades.map(trade => ({
         ...trade,
+        symbol: trade.symbol.substring(0, 6),
         id: uuidv4(),
         createdAt: now,
         updatedAt: now
@@ -547,8 +548,8 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
         {/* Merge Status */}
         {importMode === 'tradingview' && balanceFile && (
           <div className={`mb-8 p-4 rounded-lg border ${journalFile
-              ? 'bg-green-50 border-green-200'
-              : 'bg-amber-50 border-amber-200'
+            ? 'bg-green-50 border-green-200'
+            : 'bg-amber-50 border-amber-200'
             }`}>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -640,8 +641,8 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${trade.direction === 'long'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
                           }`}>
                           {trade.direction.toUpperCase()}
                         </span>
