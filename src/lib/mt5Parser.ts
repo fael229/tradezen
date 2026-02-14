@@ -27,7 +27,7 @@ export function parseMT5Report(htmlContent: string): Omit<Trade, 'id' | 'created
 
     while (currentRow) {
         // Stop if we hit another header or spacer (look for 'th' or specific row style)
-        if (currentRow.querySelector('th') || currentRow.cells.length < 5) {
+        if (currentRow.querySelector('th') || (currentRow as HTMLTableRowElement).cells.length < 5) {
             break;
         }
 
