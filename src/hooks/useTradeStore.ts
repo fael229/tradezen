@@ -12,17 +12,11 @@ export function useTradeStore() {
     try {
       const { data: { session } } = await supabaseApi.supabase.auth.getSession();
 
-      if (!session) {
-        setTrades([]);
-        setLoading(false);
-        return;
-      }
-
-      const data = await supabaseApi.fetchTrades();
-      if (data && data.length > 0) {
-        setTrades(data);
+      if (session) {
+        const data = await supabaseApi.fetchTrades();
+        setTrades(data || []);
       } else {
-        // Only check localStorage if no trades in Supabase
+        // Only check localStorage if NOT logged in
         const stored = localStorage.getItem('tradezella_trades');
         if (stored) {
           try {
@@ -32,13 +26,11 @@ export function useTradeStore() {
             setTrades([]);
           }
         } else {
-          // If a new user with no trades anywhere, we could show demo data or empty
-          // For a clean personal journal, empty is better.
           setTrades([]);
         }
       }
     } catch (error) {
-      console.error('Error loading trades from Supabase:', error);
+      console.error('Error loading trades:', error);
     } finally {
       setLoading(false);
     }
@@ -58,44 +50,112 @@ export function useTradeStore() {
   }, [loadTrades]);
 
   const addTrade = useCallback(async (trade: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newTrade = await supabaseApi.createTrade(trade);
-    if (newTrade) {
-      setTrades(prev => [newTrade, ...prev]);
+    const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+    if (session) {
+      const newTrade = await supabaseApi.createTrade(trade);
+      if (newTrade) {
+        setTrades(prev => [newTrade, ...prev]);
+        return newTrade;
+      }
+      return null;
+    } else {
+      // Local storage fallback
+      const now = new Date().toISOString();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const newTrade: any = {
+        ...trade,
+        id: crypto.randomUUID(),
+        createdAt: now,
+        updatedAt: now
+      };
+      setTrades(prev => {
+        const updated = [newTrade, ...prev];
+        localStorage.setItem('tradezella_trades', JSON.stringify(updated));
+        return updated;
+      });
       return newTrade;
     }
-    return null;
   }, []);
 
   const updateTrade = useCallback(async (id: string, updates: Partial<Trade>) => {
-    const updatedTrade = await supabaseApi.updateTrade(id, updates);
-    if (updatedTrade) {
-      setTrades(prev => prev.map(trade =>
-        trade.id === id ? updatedTrade : trade
-      ));
+    const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+    if (session) {
+      const updatedTrade = await supabaseApi.updateTrade(id, updates);
+      if (updatedTrade) {
+        setTrades(prev => prev.map(trade =>
+          trade.id === id ? updatedTrade : trade
+        ));
+      }
+    } else {
+      setTrades(prev => {
+        const updated = prev.map(trade =>
+          trade.id === id ? { ...trade, ...updates, updatedAt: new Date().toISOString() } : trade
+        );
+        localStorage.setItem('tradezella_trades', JSON.stringify(updated));
+        return updated;
+      });
     }
   }, []);
 
   const deleteTrade = useCallback(async (id: string) => {
-    const success = await supabaseApi.deleteTrade(id);
-    if (success) {
-      setTrades(prev => prev.filter(trade => trade.id !== id));
+    const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+    if (session) {
+      const success = await supabaseApi.deleteTrade(id);
+      if (success) {
+        setTrades(prev => prev.filter(trade => trade.id !== id));
+      }
+    } else {
+      setTrades(prev => {
+        const updated = prev.filter(trade => trade.id !== id);
+        localStorage.setItem('tradezella_trades', JSON.stringify(updated));
+        return updated;
+      });
     }
   }, []);
 
   const bulkAddTrades = useCallback(async (newTrades: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>[]) => {
-    const addedTrades = await supabaseApi.bulkCreateTrades(newTrades);
-    if (addedTrades.length > 0) {
-      setTrades(prev => [...addedTrades, ...prev]);
+    const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+    if (session) {
+      const addedTrades = await supabaseApi.bulkCreateTrades(newTrades);
+      if (addedTrades.length > 0) {
+        setTrades(prev => [...addedTrades, ...prev]);
+      }
+      return addedTrades;
+    } else {
+      const now = new Date().toISOString();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const createdTrades = newTrades.map(t => ({
+        ...t,
+        id: crypto.randomUUID(),
+        createdAt: now,
+        updatedAt: now
+      } as any));
+
+      setTrades(prev => {
+        const updated = [...createdTrades, ...prev];
+        localStorage.setItem('tradezella_trades', JSON.stringify(updated));
+        return updated;
+      });
+      return createdTrades;
     }
-    return addedTrades;
   }, []);
 
   const clearAllTrades = useCallback(async () => {
-    // Supabase doesn't have a simple "clear all" without a filter, 
-    // but we can delete all rows if the user really wants to.
-    console.warn('Clear all trades on Supabase not fully implemented for safety.');
-    setTrades([]);
-    localStorage.removeItem('tradezella_trades');
+    const { data: { session } } = await supabaseApi.supabase.auth.getSession();
+
+    if (session) {
+      const success = await supabaseApi.deleteAllTrades();
+      if (success) {
+        setTrades([]);
+      }
+    } else {
+      setTrades([]);
+      localStorage.removeItem('tradezella_trades');
+    }
   }, []);
 
   // Calculate statistics

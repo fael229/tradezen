@@ -67,6 +67,20 @@ export async function deleteTrade(id: string): Promise<boolean> {
   return true;
 }
 
+export async function deleteAllTrades(): Promise<boolean> {
+  const { error } = await supabase
+    .from('trades')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows (RLS will filter by user)
+
+  if (error) {
+    console.error('Error deleting all trades:', error);
+    return false;
+  }
+
+  return true;
+}
+
 export async function bulkCreateTrades(trades: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<Trade[]> {
   const { data, error } = await supabase
     .from('trades')
