@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle, Download, X, ArrowRight, Info, Trash2 } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle, Download, X, ArrowRight, Info, Trash2, LayoutTemplate } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Trade } from '../types/trade';
 import {
@@ -10,17 +10,23 @@ import {
   BalanceHistoryEntry,
   OrderLogEntry
 } from '../lib/csvParser';
+import { parseMT5Report } from '../lib/mt5Parser';
+import { cn } from '../utils/cn';
 
 interface ImportCSVProps {
   onImport: (trades: Trade[]) => void;
 }
 
 export default function ImportCSV({ onImport }: ImportCSVProps) {
+  const [importMode, setImportMode] = useState<'tradingview' | 'mt5'>('tradingview');
   const [balanceFile, setBalanceFile] = useState<File | null>(null);
   const [journalFile, setJournalFile] = useState<File | null>(null);
+  const [mt5File, setMt5File] = useState<File | null>(null);
+
   const [balanceEntries, setBalanceEntries] = useState<BalanceHistoryEntry[]>([]);
   const [journalEntries, setJournalEntries] = useState<OrderLogEntry[]>([]);
   const [parsedTrades, setParsedTrades] = useState<Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>[]>([]);
+
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [step, setStep] = useState<'upload' | 'preview' | 'complete'>('upload');
@@ -31,16 +37,16 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
       try {
         const content = e.target?.result as string;
         const entries = parseBalanceHistoryCSV(content);
-        
+
         if (entries.length === 0) {
           setError('Aucun trade trouvé dans le fichier historique des soldes');
           return;
         }
-        
+
         setBalanceEntries(entries);
         setBalanceFile(file);
         setError(null);
-        
+
         // If we already have journal entries, merge them
         if (journalEntries.length > 0) {
           const trades = mergeTradeData(entries, journalEntries);
@@ -63,16 +69,16 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
       try {
         const content = e.target?.result as string;
         const entries = parseOrderLogsCSV(content);
-        
+
         if (entries.length === 0) {
           setError('Aucune entrée trouvée dans le journal de trading');
           return;
         }
-        
+
         setJournalEntries(entries);
         setJournalFile(file);
         setError(null);
-        
+
         // If we already have balance entries, merge them
         if (balanceEntries.length > 0) {
           const trades = mergeTradeData(balanceEntries, entries);
@@ -85,36 +91,68 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
     reader.readAsText(file);
   }, [balanceEntries]);
 
-  const handleDrop = useCallback((e: React.DragEvent, type: 'balance' | 'journal') => {
+  const handleMt5File = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const trades = parseMT5Report(content);
+
+        if (trades.length === 0) {
+          setError('Aucun trade trouvé dans le rapport MT5. Assurez-vous d\'utiliser le rapport HTML standard.');
+          return;
+        }
+
+        setParsedTrades(trades);
+        setMt5File(file);
+        setError(null);
+      } catch (err) {
+        setError('Erreur lors de l\'analyse du rapport MT5: ' + (err as Error).message);
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, type: 'balance' | 'journal' | 'mt5') => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) {
-      if (type === 'balance') {
-        handleBalanceFile(file);
+    if (file) {
+      if (type === 'mt5') {
+        if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
+          handleMt5File(file);
+        } else {
+          setError('Veuillez déposer un fichier HTML');
+        }
+      } else if (file.name.endsWith('.csv')) {
+        if (type === 'balance') {
+          handleBalanceFile(file);
+        } else {
+          handleJournalFile(file);
+        }
       } else {
-        handleJournalFile(file);
+        setError('Veuillez déposer un fichier CSV pour TradingView ou HTML pour MT5');
       }
-    } else {
-      setError('Veuillez déposer un fichier CSV');
     }
-  }, [handleBalanceFile, handleJournalFile]);
+  }, [handleBalanceFile, handleJournalFile, handleMt5File]);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: 'balance' | 'journal') => {
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, type: 'balance' | 'journal' | 'mt5') => {
     const file = e.target.files?.[0];
     if (file) {
-      if (type === 'balance') {
+      if (type === 'mt5') {
+        handleMt5File(file);
+      } else if (type === 'balance') {
         handleBalanceFile(file);
       } else {
         handleJournalFile(file);
       }
     }
-  }, [handleBalanceFile, handleJournalFile]);
+  }, [handleBalanceFile, handleJournalFile, handleMt5File]);
 
   const handleImport = async () => {
     if (parsedTrades.length === 0) return;
-    
+
     setImporting(true);
-    
+
     try {
       const now = new Date().toISOString();
       const trades: Trade[] = parsedTrades.map(trade => ({
@@ -123,7 +161,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
         createdAt: now,
         updatedAt: now
       }));
-      
+
       onImport(trades);
       setStep('complete');
     } catch (err) {
@@ -136,6 +174,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
   const resetImport = () => {
     setBalanceFile(null);
     setJournalFile(null);
+    setMt5File(null);
     setBalanceEntries([]);
     setJournalEntries([]);
     setParsedTrades([]);
@@ -148,7 +187,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
 2026-02-11 13:31:49,133009.73388878,137127.38028878,4117.646399999998,USD,"Close short position for symbol OANDA:EURUSD at price 1.19018 for 2941176 units. Position AVG Price was 1.191580, currency: USD, rate: 1.000000, point value: 1.000000"
 2026-02-11 10:52:06,126489.21388877608,133009.73388877604,6520.51999999996,USD,"Close long position for symbol OANDA:XAUUSD at price 5063.050 for 446 units. Position AVG Price was 5048.430000, currency: USD, rate: 1.000000, point value: 1.000000"
 2026-02-11 05:49:48,125665.37428877641,129916.4138887764,4251.039599999989,USD,"Close short position for symbol OANDA:GBPJPY at price 209.576 for 200000 units. Position AVG Price was 212.837000, currency: JPY, rate: 0.006518, point value: 1.000000"`;
-    
+
     const blob = new Blob([sample], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -168,7 +207,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
 2026-02-11 12:03:17,Call to place market order to sell 2941176 units of symbol OANDA:EURUSD with SL 1.19278 and TP 1.18972
 2026-02-11 09:32:59,Call to place market order to buy 446 units of symbol OANDA:XAUUSD with SL 5041.184 and TP 5073.841
 2026-02-11 08:58:36,Modify position for symbol OANDA:GBPJPY with SL 212.890 and TP 207.978`;
-    
+
     const blob = new Blob([sample], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -195,29 +234,29 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
           <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Import réussi !</h2>
-          <p className="text-gray-400 mb-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Import réussi !</h2>
+          <p className="text-slate-500 mb-8">
             {stats.total} trades ont été importés avec succès dans votre journal.
           </p>
-          
+
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-gray-800 rounded-lg p-4">
-              <div className="text-2xl font-bold text-white">{stats.total}</div>
-              <div className="text-sm text-gray-400">Trades importés</div>
+            <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+              <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
+              <div className="text-sm text-slate-500">Trades importés</div>
             </div>
-            <div className="bg-gray-800 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-500">{stats.winning}</div>
-              <div className="text-sm text-gray-400">Gagnants</div>
+            <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+              <div className="text-2xl font-bold text-green-600">{stats.winning}</div>
+              <div className="text-sm text-slate-500">Gagnants</div>
             </div>
-            <div className="bg-gray-800 rounded-lg p-4">
-              <div className="text-2xl font-bold text-red-500">{stats.losing}</div>
-              <div className="text-sm text-gray-400">Perdants</div>
+            <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+              <div className="text-2xl font-bold text-red-600">{stats.losing}</div>
+              <div className="text-sm text-slate-500">Perdants</div>
             </div>
           </div>
-          
+
           <button
             onClick={resetImport}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             Importer d'autres trades
           </button>
@@ -230,218 +269,320 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
     <div className="p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Import CSV TradingView</h2>
-          <p className="text-gray-400">
-            Importez vos trades depuis TradingView en utilisant les fichiers d'export CSV.
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Import Trades</h2>
+          <p className="text-slate-500">
+            Importez vos trades depuis TradingView ou MetaTrader 5.
           </p>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8">
+          <button
+            onClick={() => {
+              setImportMode('tradingview');
+              resetImport();
+            }}
+            className={cn(
+              "px-4 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors",
+              importMode === 'tradingview'
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+            )}
+          >
+            <FileText className="w-5 h-5" />
+            TradingView CSV
+          </button>
+          <button
+            onClick={() => {
+              setImportMode('mt5');
+              resetImport();
+            }}
+            className={cn(
+              "px-4 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors",
+              importMode === 'mt5'
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+            )}
+          >
+            <LayoutTemplate className="w-5 h-5" />
+            MetaTrader 5 Report
+          </button>
+        </div>
+
         {/* Info Box */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
             <div>
-              <h4 className="text-blue-400 font-medium mb-1">Comment obtenir ces fichiers ?</h4>
-              <p className="text-gray-400 text-sm">
-                Dans TradingView, allez dans <strong>Panel de Trading</strong> → <strong>Historique</strong> → 
-                Cliquez sur le bouton <strong>Exporter</strong> pour chaque onglet.
+              <h4 className="text-blue-700 font-medium mb-1">
+                {importMode === 'tradingview' ? 'Comment obtenir les fichiers CSV TradingView ?' : 'Comment obtenir le rapport MT5 ?'}
+              </h4>
+              <p className="text-blue-600 text-sm">
+                {importMode === 'tradingview' ? (
+                  <>
+                    Dans TradingView, allez dans <strong>Panel de Trading</strong> → <strong>Historique</strong> →
+                    Cliquez sur le bouton <strong>Exporter</strong> pour l'Historique des soldes et le Journal.
+                  </>
+                ) : (
+                  <>
+                    Dans MetaTrader 5, allez dans l'onglet <strong>Historique</strong> → Clic droit →
+                    <strong>Rapport</strong> → <strong>HTML</strong> (Standard).
+                  </>
+                )}
               </p>
             </div>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center gap-3">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <span className="text-red-400">{error}</span>
-            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
+            <span className="text-red-600">{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Balance History File */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  balanceFile ? 'bg-green-500/20' : 'bg-blue-500/20'
-                }`}>
-                  <FileText className={`w-5 h-5 ${balanceFile ? 'text-green-400' : 'text-blue-400'}`} />
+        {importMode === 'tradingview' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Balance History File */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${balanceFile ? 'bg-green-100' : 'bg-blue-100'
+                    }`}>
+                    <FileText className={`w-5 h-5 ${balanceFile ? 'text-green-600' : 'text-blue-600'}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Historique des Soldes</h3>
+                    <p className="text-xs text-slate-500">Requis • Contient les P&L et prix</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-white">Historique des Soldes</h3>
-                  <p className="text-xs text-gray-400">Requis • Contient les P&L et prix</p>
-                </div>
+                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Requis</span>
               </div>
-              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">Requis</span>
+
+              {balanceFile ? (
+                <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-slate-900 font-medium">{balanceFile.name}</p>
+                        <p className="text-sm text-slate-500">{balanceEntries.length} trades détectés</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setBalanceFile(null);
+                        setBalanceEntries([]);
+                        setParsedTrades([]);
+                      }}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-slate-400" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDrop(e, 'balance')}
+                  className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-2">Glissez-déposez votre fichier ici</p>
+                  <label className="cursor-pointer">
+                    <span className="text-blue-600 hover:text-blue-700 font-medium">ou parcourez vos fichiers</span>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => handleFileSelect(e, 'balance')}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <button
+                onClick={downloadSampleBalance}
+                className="mt-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+              >
+                <Download className="w-4 h-4" />
+                Télécharger un exemple
+              </button>
             </div>
 
-            {balanceFile ? (
-              <div className="border border-green-500/30 bg-green-500/10 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="text-white font-medium">{balanceFile.name}</p>
-                      <p className="text-sm text-gray-400">{balanceEntries.length} trades détectés</p>
-                    </div>
+            {/* Journal File */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${journalFile ? 'bg-green-100' : 'bg-amber-100'
+                    }`}>
+                    <FileText className={`w-5 h-5 ${journalFile ? 'text-green-600' : 'text-amber-600'}`} />
                   </div>
-                  <button
-                    onClick={() => {
-                      setBalanceFile(null);
-                      setBalanceEntries([]);
-                      setParsedTrades([]);
-                    }}
-                    className="p-2 hover:bg-gray-700 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4 text-gray-400" />
-                  </button>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Journal de Trading</h3>
+                    <p className="text-xs text-slate-500">Optionnel • Contient les SL/TP</p>
+                  </div>
                 </div>
+                <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">Optionnel</span>
               </div>
-            ) : (
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => handleDrop(e, 'balance')}
-                className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-blue-500/50 transition-colors"
+
+              {journalFile ? (
+                <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-slate-900 font-medium">{journalFile.name}</p>
+                        <p className="text-sm text-slate-500">{journalEntries.length} entrées détectées</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setJournalFile(null);
+                        setJournalEntries([]);
+                        // Re-parse without journal
+                        if (balanceEntries.length > 0) {
+                          const trades = parseBalanceHistoryTrades(balanceEntries);
+                          setParsedTrades(trades);
+                        }
+                      }}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-slate-400" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDrop(e, 'journal')}
+                  className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-amber-500 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-2">Glissez-déposez votre fichier ici</p>
+                  <label className="cursor-pointer">
+                    <span className="text-amber-600 hover:text-amber-700 font-medium">ou parcourez vos fichiers</span>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => handleFileSelect(e, 'journal')}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+
+              <button
+                onClick={downloadSampleJournal}
+                className="mt-4 flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
               >
-                <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-400 mb-2">Glissez-déposez votre fichier ici</p>
-                <label className="cursor-pointer">
-                  <span className="text-blue-400 hover:text-blue-300">ou parcourez vos fichiers</span>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => handleFileSelect(e, 'balance')}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
-
-            <button
-              onClick={downloadSampleBalance}
-              className="mt-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <Download className="w-4 h-4" />
-              Télécharger un exemple
-            </button>
-          </div>
-
-          {/* Journal File */}
-          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  journalFile ? 'bg-green-500/20' : 'bg-yellow-500/20'
-                }`}>
-                  <FileText className={`w-5 h-5 ${journalFile ? 'text-green-400' : 'text-yellow-400'}`} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">Journal de Trading</h3>
-                  <p className="text-xs text-gray-400">Optionnel • Contient les SL/TP</p>
-                </div>
-              </div>
-              <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">Optionnel</span>
+                <Download className="w-4 h-4" />
+                Télécharger un exemple
+              </button>
             </div>
-
-            {journalFile ? (
-              <div className="border border-green-500/30 bg-green-500/10 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="text-white font-medium">{journalFile.name}</p>
-                      <p className="text-sm text-gray-400">{journalEntries.length} entrées détectées</p>
-                    </div>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${mt5File ? 'bg-green-100' : 'bg-blue-100'
+                    }`}>
+                    <LayoutTemplate className={`w-5 h-5 ${mt5File ? 'text-green-600' : 'text-blue-600'}`} />
                   </div>
-                  <button
-                    onClick={() => {
-                      setJournalFile(null);
-                      setJournalEntries([]);
-                      // Re-parse without journal
-                      if (balanceEntries.length > 0) {
-                        const trades = parseBalanceHistoryTrades(balanceEntries);
-                        setParsedTrades(trades);
-                      }
-                    }}
-                    className="p-2 hover:bg-gray-700 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4 text-gray-400" />
-                  </button>
+                  <div>
+                    <h3 className="font-semibold text-slate-900">Rapport MT5 (HTML)</h3>
+                    <p className="text-xs text-slate-500">Fichier de rapport complet avec positions</p>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => handleDrop(e, 'journal')}
-                className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-yellow-500/50 transition-colors"
-              >
-                <Upload className="w-8 h-8 text-gray-500 mx-auto mb-3" />
-                <p className="text-gray-400 mb-2">Glissez-déposez votre fichier ici</p>
-                <label className="cursor-pointer">
-                  <span className="text-yellow-400 hover:text-yellow-300">ou parcourez vos fichiers</span>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => handleFileSelect(e, 'journal')}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
 
-            <button
-              onClick={downloadSampleJournal}
-              className="mt-4 flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-            >
-              <Download className="w-4 h-4" />
-              Télécharger un exemple
-            </button>
+              {mt5File ? (
+                <div className="border border-green-200 bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-slate-900 font-medium">{mt5File.name}</p>
+                        <p className="text-sm text-slate-500">{parsedTrades.length} trades détectés</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setMt5File(null);
+                        setParsedTrades([]);
+                      }}
+                      className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-slate-400" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDrop(e, 'mt5')}
+                  className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-2">Glissez-déposez votre fichier HTML ici</p>
+                  <label className="cursor-pointer">
+                    <span className="text-blue-600 hover:text-blue-700 font-medium">ou parcourez vos fichiers</span>
+                    <input
+                      type="file"
+                      accept=".html,.htm"
+                      onChange={(e) => handleFileSelect(e, 'mt5')}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Merge Status */}
-        {balanceFile && (
-          <div className={`mb-8 p-4 rounded-lg border ${
-            journalFile 
-              ? 'bg-green-500/10 border-green-500/30' 
-              : 'bg-yellow-500/10 border-yellow-500/30'
-          }`}>
+        {importMode === 'tradingview' && balanceFile && (
+          <div className={`mb-8 p-4 rounded-lg border ${journalFile
+              ? 'bg-green-50 border-green-200'
+              : 'bg-amber-50 border-amber-200'
+            }`}>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-400" />
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="text-white">{balanceEntries.length} trades</span>
+                <span className="text-slate-700">{balanceEntries.length} trades</span>
               </div>
-              
+
               {journalFile && (
                 <>
-                  <ArrowRight className="w-5 h-5 text-gray-500" />
+                  <ArrowRight className="w-5 h-5 text-slate-400" />
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-yellow-400" />
+                    <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-amber-600" />
                     </div>
-                    <span className="text-white">{journalEntries.length} logs</span>
+                    <span className="text-slate-700">{journalEntries.length} logs</span>
                   </div>
                 </>
               )}
-              
-              <ArrowRight className="w-5 h-5 text-gray-500" />
-              
+
+              <ArrowRight className="w-5 h-5 text-slate-400" />
+
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
                 </div>
-                <span className="text-white">
+                <span className="text-slate-700">
                   {parsedTrades.length} trades avec {stats.withSlTp} SL/TP
                 </span>
               </div>
-              
+
               {!journalFile && (
-                <span className="ml-auto text-yellow-400 text-sm flex items-center gap-2">
+                <span className="ml-auto text-amber-600 text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" />
                   SL/TP manquants - ajoutez le journal
                 </span>
@@ -452,42 +593,42 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
 
         {/* Preview Table */}
         {parsedTrades.length > 0 && (
-          <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden mb-6">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="font-semibold text-white">Aperçu des trades ({parsedTrades.length})</h3>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h3 className="font-semibold text-slate-900">Aperçu des trades ({parsedTrades.length})</h3>
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-green-400">
+                <span className="text-green-600 font-medium">
                   ✓ {stats.winning} gagnants
                 </span>
-                <span className="text-red-400">
+                <span className="text-red-600 font-medium">
                   ✗ {stats.losing} perdants
                 </span>
-                <span className={stats.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}>
+                <span className={cn("font-medium", stats.totalPnl >= 0 ? 'text-green-600' : 'text-red-600')}>
                   P&L: ${stats.totalPnl.toFixed(2)}
                 </span>
               </div>
             </div>
-            
+
             <div className="overflow-x-auto max-h-96">
               <table className="w-full">
-                <thead className="bg-gray-900 sticky top-0">
+                <thead className="bg-slate-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Symbole</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Direction</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Entry</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Exit</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">SL</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">TP</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400">Units</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400">P&L</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Symbole</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Direction</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Entry</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Exit</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SL</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">TP</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Units</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">P&L</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700">
+                <tbody className="divide-y divide-slate-200 bg-white">
                   {parsedTrades.slice(0, 50).map((trade, index) => (
-                    <tr key={index} className="hover:bg-gray-700/50">
-                      <td className="px-4 py-3 text-sm text-gray-300">
-                        {new Date(trade.exitTime || '').toLocaleDateString('fr-FR', {
+                    <tr key={index} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 text-sm text-slate-900">
+                        {new Date(trade.exitTime || trade.entryTime).toLocaleDateString('fr-FR', {
                           day: '2-digit',
                           month: '2-digit',
                           hour: '2-digit',
@@ -495,47 +636,45 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
                         })}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-medium text-white">{trade.symbol}</span>
+                        <span className="font-medium text-slate-900">{trade.symbol}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          trade.direction === 'long' 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-red-500/20 text-red-400'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${trade.direction === 'long'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                          }`}>
                           {trade.direction.toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-300">
+                      <td className="px-4 py-3 text-sm text-slate-600">
                         {trade.entryPrice?.toFixed(trade.entryPrice < 10 ? 5 : 2)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-300">
+                      <td className="px-4 py-3 text-sm text-slate-600">
                         {trade.exitPrice?.toFixed(trade.exitPrice < 10 ? 5 : 2)}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {trade.stopLoss ? (
-                          <span className="text-red-400">
+                          <span className="text-red-600">
                             {trade.stopLoss.toFixed(trade.stopLoss < 10 ? 5 : 2)}
                           </span>
                         ) : (
-                          <span className="text-gray-600">-</span>
+                          <span className="text-slate-400">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {trade.takeProfit ? (
-                          <span className="text-green-400">
+                          <span className="text-green-600">
                             {trade.takeProfit.toFixed(trade.takeProfit < 10 ? 5 : 2)}
                           </span>
                         ) : (
-                          <span className="text-gray-600">-</span>
+                          <span className="text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-300">
+                      <td className="px-4 py-3 text-sm text-slate-600">
                         {trade.units?.toLocaleString()}
                       </td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${
-                        (trade.pnl || 0) >= 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
+                      <td className={`px-4 py-3 text-sm text-right font-medium ${(trade.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {(trade.pnl || 0) >= 0 ? '+' : ''}{(trade.pnl || 0).toFixed(2)}
                       </td>
                     </tr>
@@ -543,7 +682,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
                 </tbody>
               </table>
               {parsedTrades.length > 50 && (
-                <div className="p-4 text-center text-gray-400 bg-gray-900">
+                <div className="p-4 text-center text-slate-500 bg-slate-50 border-t border-slate-200">
                   + {parsedTrades.length - 50} autres trades...
                 </div>
               )}
@@ -557,7 +696,7 @@ export default function ImportCSV({ onImport }: ImportCSVProps) {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium flex items-center gap-2"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium flex items-center gap-2 shadow-sm transition-colors"
             >
               {importing ? (
                 <>
