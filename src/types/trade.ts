@@ -35,6 +35,13 @@ export interface TradeStats {
   averageRRR: number;
   consecutiveWins: number;
   consecutiveLosses: number;
+  expectancy: number;
+  averageHoldingTime: number; // in hours
+  sharpeRatio: number;
+  sortinoRatio: number;
+  maxDrawdown: number;
+  maxDrawdownPercent: number;
+  sqn: number;
 }
 
 export interface DailyStats {

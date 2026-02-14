@@ -1,7 +1,7 @@
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
+import {
+  PieChart,
+  Pie,
+  Cell,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -34,21 +34,21 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
   // Direction analysis
   const longTrades = closedTrades.filter(t => t.direction === 'long');
   const shortTrades = closedTrades.filter(t => t.direction === 'short');
-  
+
   const directionData = [
     {
       name: 'Long',
       trades: longTrades.length,
-      winRate: longTrades.length > 0 
-        ? (longTrades.filter(t => (t.pnl || 0) > 0).length / longTrades.length) * 100 
+      winRate: longTrades.length > 0
+        ? (longTrades.filter(t => (t.pnl || 0) > 0).length / longTrades.length) * 100
         : 0,
       pnl: longTrades.reduce((sum, t) => sum + (t.pnl || 0), 0),
     },
     {
       name: 'Short',
       trades: shortTrades.length,
-      winRate: shortTrades.length > 0 
-        ? (shortTrades.filter(t => (t.pnl || 0) > 0).length / shortTrades.length) * 100 
+      winRate: shortTrades.length > 0
+        ? (shortTrades.filter(t => (t.pnl || 0) > 0).length / shortTrades.length) * 100
         : 0,
       pnl: shortTrades.reduce((sum, t) => sum + (t.pnl || 0), 0),
     },
@@ -75,7 +75,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
   // Day of week analysis
   const dayOfWeekMap = new Map<number, { trades: number; wins: number; pnl: number }>();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
   for (const trade of closedTrades) {
     const day = new Date(trade.entryTime).getDay();
     const current = dayOfWeekMap.get(day) || { trades: 0, wins: 0, pnl: 0 };
@@ -88,15 +88,15 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
   const dayOfWeekData = [1, 2, 3, 4, 5].map(day => ({
     day: dayNames[day],
     trades: dayOfWeekMap.get(day)?.trades || 0,
-    winRate: dayOfWeekMap.get(day) 
-      ? ((dayOfWeekMap.get(day)!.wins / dayOfWeekMap.get(day)!.trades) * 100) 
+    winRate: dayOfWeekMap.get(day)
+      ? ((dayOfWeekMap.get(day)!.wins / dayOfWeekMap.get(day)!.trades) * 100)
       : 0,
     pnl: dayOfWeekMap.get(day)?.pnl || 0,
   }));
 
   // Hour of day analysis
   const hourMap = new Map<number, { trades: number; wins: number; pnl: number }>();
-  
+
   for (const trade of closedTrades) {
     const hour = new Date(trade.entryTime).getHours();
     const current = hourMap.get(hour) || { trades: 0, wins: 0, pnl: 0 };
@@ -133,7 +133,8 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Basic Stats */}
         <SummaryCard
           title="Best Symbol"
           value={symbolData[0]?.symbol || '-'}
@@ -147,16 +148,42 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
           color="blue"
         />
         <SummaryCard
-          title="Most Traded"
-          value={symbolData.sort((a, b) => b.trades - a.trades)[0]?.symbol || '-'}
-          subtitle={`${symbolData.sort((a, b) => b.trades - a.trades)[0]?.trades || 0} trades`}
-          color="purple"
+          title="Avg Trade Duration"
+          value={stats.averageHoldingTime < 1 ? `${(stats.averageHoldingTime * 60).toFixed(0)} min` : `${stats.averageHoldingTime.toFixed(1)} hours`}
+          subtitle="per trade"
+          color="amber"
         />
         <SummaryCard
-          title="Avg Trade Duration"
-          value={calculateAvgDuration(closedTrades)}
-          subtitle="hours per trade"
-          color="amber"
+          title="Expectancy"
+          value={formatCurrency(stats.expectancy)}
+          subtitle="per trade"
+          color={stats.expectancy >= 0 ? "emerald" : "red"}
+        />
+
+        {/* Advanced Stats */}
+        <SummaryCard
+          title="Profit Factor"
+          value={stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)}
+          subtitle="Gross Profit / Gross Loss"
+          color={stats.profitFactor >= 1.5 ? "emerald" : stats.profitFactor >= 1 ? "amber" : "red"}
+        />
+        <SummaryCard
+          title="Max Drawdown"
+          value={formatCurrency(stats.maxDrawdown)}
+          subtitle={`${stats.maxDrawdownPercent.toFixed(2)}% of peak equity`}
+          color="red"
+        />
+        <SummaryCard
+          title="System Quality (SQN)"
+          value={stats.sqn.toFixed(2)}
+          subtitle={getSqnRating(stats.sqn)}
+          color={stats.sqn >= 2.5 ? "emerald" : stats.sqn >= 1.6 ? "blue" : stats.sqn >= 0.6 ? "amber" : "red"}
+        />
+        <SummaryCard
+          title="Sharpe / Sortino"
+          value={`${stats.sharpeRatio.toFixed(2)} / ${stats.sortinoRatio.toFixed(2)}`}
+          subtitle="Risk-adjusted Return"
+          color="purple"
         />
       </div>
 
@@ -182,10 +209,10 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: 'none', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: 'none',
                       borderRadius: '8px',
                       color: '#fff'
                     }}
@@ -218,10 +245,10 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="name" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: 'none', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: 'none',
                     borderRadius: '8px',
                     color: '#fff'
                   }}
@@ -255,13 +282,13 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
                 </div>
                 <div className="flex-1">
                   <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={cn(
                         "h-full rounded-full",
                         symbol.pnl >= 0 ? "bg-emerald-500" : "bg-red-500"
                       )}
-                      style={{ 
-                        width: `${Math.min(Math.abs(symbol.pnl) / (Math.max(...symbolData.map(s => Math.abs(s.pnl))) || 1) * 100, 100)}%` 
+                      style={{
+                        width: `${Math.min(Math.abs(symbol.pnl) / (Math.max(...symbolData.map(s => Math.abs(s.pnl))) || 1) * 100, 100)}%`
                       }}
                     />
                   </div>
@@ -294,10 +321,10 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="day" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: 'none', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: 'none',
                     borderRadius: '8px',
                     color: '#fff'
                   }}
@@ -318,27 +345,27 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="hour" stroke="#94a3b8" />
               <YAxis stroke="#94a3b8" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1e293b', 
-                  border: 'none', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: 'none',
                   borderRadius: '8px',
                   color: '#fff'
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="winRate" 
-                stroke="#10b981" 
+              <Line
+                type="monotone"
+                dataKey="winRate"
+                stroke="#10b981"
                 strokeWidth={2}
                 dot={{ fill: '#10b981' }}
                 name="Win Rate %"
               />
-              <Line 
-                type="monotone" 
-                dataKey="trades" 
-                stroke="#3b82f6" 
+              <Line
+                type="monotone"
+                dataKey="trades"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={{ fill: '#3b82f6' }}
                 name="Trades"
@@ -355,7 +382,7 @@ interface SummaryCardProps {
   title: string;
   value: string;
   subtitle: string;
-  color: 'emerald' | 'blue' | 'purple' | 'amber';
+  color: 'emerald' | 'blue' | 'purple' | 'amber' | 'red';
 }
 
 function SummaryCard({ title, value, subtitle, color }: SummaryCardProps) {
@@ -364,6 +391,7 @@ function SummaryCard({ title, value, subtitle, color }: SummaryCardProps) {
     blue: 'border-l-blue-500',
     purple: 'border-l-purple-500',
     amber: 'border-l-amber-500',
+    red: 'border-l-red-500',
   };
 
   return (
@@ -378,20 +406,11 @@ function SummaryCard({ title, value, subtitle, color }: SummaryCardProps) {
   );
 }
 
-function calculateAvgDuration(trades: Trade[]): string {
-  const tradesWithDuration = trades.filter(t => t.entryTime && t.exitTime);
-  
-  if (tradesWithDuration.length === 0) return '-';
-  
-  const totalMinutes = tradesWithDuration.reduce((sum, trade) => {
-    const entry = new Date(trade.entryTime).getTime();
-    const exit = new Date(trade.exitTime!).getTime();
-    return sum + (exit - entry) / (1000 * 60);
-  }, 0);
-  
-  const avgMinutes = totalMinutes / tradesWithDuration.length;
-  
-  if (avgMinutes < 60) return `${avgMinutes.toFixed(0)} min`;
-  if (avgMinutes < 1440) return `${(avgMinutes / 60).toFixed(1)}`;
-  return `${(avgMinutes / 1440).toFixed(1)} days`;
+function getSqnRating(sqn: number): string {
+  if (sqn >= 7.0) return "Holy Grail";
+  if (sqn >= 5.0) return "Excellent";
+  if (sqn >= 2.5) return "Great";
+  if (sqn >= 2.0) return "Good";
+  if (sqn >= 1.6) return "Average";
+  return "Poor";
 }
