@@ -18,7 +18,7 @@ export let currentExchangeRates: ExchangeRates = {
     USDT: 1,
     BTC: 65000, // Approximate
     ETH: 3500,  // Approximate
-    USC: 0.01,  // US Cents (Fixed)
+    USC: 100,   // US Cents (1 USD = 100 USC)
 };
 
 const CACHE_KEY = 'tradezen_exchange_rates';
@@ -34,7 +34,7 @@ export async function fetchExchangeRates(): Promise<void> {
                 console.log('Using cached exchange rates');
                 currentExchangeRates = { ...currentExchangeRates, ...rates };
                 // Ensure USC is set correctly as it won't be in the API
-                currentExchangeRates.USC = 0.01;
+                currentExchangeRates.USC = 100;
                 return;
             }
         }
@@ -59,7 +59,7 @@ export async function fetchExchangeRates(): Promise<void> {
             ...currentExchangeRates,
             ...data.rates,
             USD: 1,
-            USC: 0.01, // Always fixed
+            USC: 100,  // 1 USD = 100 USC
             USDC: 1,   // Assumed pegged
             USDT: 1    // Assumed pegged
         };
