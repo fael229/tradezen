@@ -13,12 +13,17 @@ import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 
+import { fetchExchangeRates } from './utils/currencyConversion';
+
 export function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch live exchange rates on app start
+    fetchExchangeRates();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
