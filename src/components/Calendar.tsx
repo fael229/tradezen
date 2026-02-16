@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import type { Trade } from '../types/trade';
 import { cn } from '../utils/cn';
+import { convertCurrency } from '../utils/currencyConversion';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 
 interface CalendarProps {
   trades: Trade[];
+  baseCurrency?: string;
 }
 
-export function Calendar({ trades }: CalendarProps) {
+export function Calendar({ trades, baseCurrency = 'USD' }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();
@@ -20,14 +23,16 @@ export function Calendar({ trades }: CalendarProps) {
 
   // Calculate daily P&L
   const dailyPnl = new Map<string, { pnl: number; trades: number; wins: number }>();
-  
+
+  const getPnl = (t: Trade) => convertCurrency(t.pnl || 0, t.currency || 'USD', baseCurrency);
+
   for (const trade of trades) {
     if (trade.status === 'closed' && trade.exitTime && trade.pnl !== null) {
       const dateKey = new Date(trade.exitTime).toISOString().split('T')[0];
       const current = dailyPnl.get(dateKey) || { pnl: 0, trades: 0, wins: 0 };
-      current.pnl += trade.pnl;
+      current.pnl += getPnl(trade);
       current.trades += 1;
-      if (trade.pnl > 0) current.wins += 1;
+      if ((trade.pnl || 0) > 0) current.wins += 1;
       dailyPnl.set(dateKey, current);
     }
   }
@@ -45,22 +50,17 @@ export function Calendar({ trades }: CalendarProps) {
   };
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
+    return formatCurrencyUtil(value, baseCurrency);
   };
 
   // Generate calendar days
   const calendarDays = [];
-  
+
   // Add empty cells for days before the first of the month
   for (let i = 0; i < firstDayWeekday; i++) {
     calendarDays.push(null);
   }
-  
+
   // Add days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -85,7 +85,7 @@ export function Calendar({ trades }: CalendarProps) {
     return exitDate.getMonth() === month && exitDate.getFullYear() === year;
   });
 
-  const monthlyPnl = monthlyTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const monthlyPnl = monthlyTrades.reduce((sum, t) => sum + getPnl(t), 0);
   const monthlyWins = monthlyTrades.filter(t => (t.pnl || 0) > 0).length;
   const monthlyWinRate = monthlyTrades.length > 0 ? (monthlyWins / monthlyTrades.length) * 100 : 0;
 
@@ -179,9 +179,9 @@ export function Calendar({ trades }: CalendarProps) {
                 return <div key={`empty-${index}`} className="aspect-square" />;
               }
 
-              const isToday = 
-                cell.day === new Date().getDate() && 
-                month === new Date().getMonth() && 
+              const isToday =
+                cell.day === new Date().getDate() &&
+                month === new Date().getMonth() &&
                 year === new Date().getFullYear();
 
               const hasTrades = cell.data && cell.data.trades > 0;
@@ -194,9 +194,9 @@ export function Calendar({ trades }: CalendarProps) {
                   className={cn(
                     "aspect-square rounded-lg p-2 transition-all duration-200 cursor-pointer",
                     isToday && "ring-2 ring-emerald-500",
-                    hasTrades 
-                      ? isProfit 
-                        ? "bg-emerald-50 hover:bg-emerald-100" 
+                    hasTrades
+                      ? isProfit
+                        ? "bg-emerald-50 hover:bg-emerald-100"
                         : "bg-red-50 hover:bg-red-100"
                       : "bg-slate-50 hover:bg-slate-100"
                   )}
@@ -208,12 +208,12 @@ export function Calendar({ trades }: CalendarProps) {
                     )}>
                       {cell.day}
                     </span>
-                    
+
                     {hasTrades && (
                       <div className="flex-1 flex flex-col justify-end">
                         <div className="flex items-center gap-1">
-                          {isProfit 
-                            ? <TrendingUp className="w-3 h-3 text-emerald-600" /> 
+                          {isProfit
+                            ? <TrendingUp className="w-3 h-3 text-emerald-600" />
                             : <TrendingDown className="w-3 h-3 text-red-600" />
                           }
                           <span className={cn(

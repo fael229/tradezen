@@ -85,7 +85,7 @@ export function App() {
       case 'analytics':
         return <Analytics trades={trades} stats={stats} dailyStats={dailyStats} baseCurrency={preferredCurrency} />;
       case 'calendar':
-        return <Calendar trades={trades} />;
+        return <Calendar trades={trades} baseCurrency={preferredCurrency} />;
       case 'symbols':
         return <SymbolExplorer />;
       case 'playbook':
