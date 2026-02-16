@@ -37,6 +37,9 @@ export function Settings({ onClearData }: SettingsProps) {
     localStorage.setItem('timezone', timezone);
     localStorage.setItem('notifications', String(notifications));
 
+    // Dispatch event to update other components
+    window.dispatchEvent(new Event('settings-changed'));
+
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 3000);
   };
@@ -56,7 +59,7 @@ export function Settings({ onClearData }: SettingsProps) {
     'Australia/Sydney',
   ];
 
-  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD'];
+  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'USDC', 'USDT'];
 
   return (
     <div className="space-y-6 max-w-3xl">

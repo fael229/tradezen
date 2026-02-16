@@ -14,16 +14,21 @@ import {
   Line
 } from 'recharts';
 import type { Trade, TradeStats, DailyStats } from '../types/trade';
+import { convertCurrency } from '../utils/currencyConversion';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import { cn } from '../utils/cn';
 
 interface AnalyticsProps {
   trades: Trade[];
   stats: TradeStats;
   dailyStats: DailyStats[];
+  baseCurrency?: string;
 }
 
-export function Analytics({ trades, stats }: AnalyticsProps) {
+export function Analytics({ trades, stats, baseCurrency = 'USD' }: AnalyticsProps) {
   const closedTrades = trades.filter(t => t.status === 'closed' && t.pnl !== null);
+
+  const getPnl = (t: Trade) => convertCurrency(t.pnl || 0, t.currency || 'USD', baseCurrency);
 
   // Win/Loss pie chart data
   const winLossData = [
@@ -42,7 +47,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
       winRate: longTrades.length > 0
         ? (longTrades.filter(t => (t.pnl || 0) > 0).length / longTrades.length) * 100
         : 0,
-      pnl: longTrades.reduce((sum, t) => sum + (t.pnl || 0), 0),
+      pnl: longTrades.reduce((sum, t) => sum + getPnl(t), 0),
     },
     {
       name: 'Short',
@@ -50,7 +55,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
       winRate: shortTrades.length > 0
         ? (shortTrades.filter(t => (t.pnl || 0) > 0).length / shortTrades.length) * 100
         : 0,
-      pnl: shortTrades.reduce((sum, t) => sum + (t.pnl || 0), 0),
+      pnl: shortTrades.reduce((sum, t) => sum + getPnl(t), 0),
     },
   ];
 
@@ -60,7 +65,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
     const current = symbolMap.get(trade.symbol) || { trades: 0, wins: 0, pnl: 0 };
     current.trades += 1;
     if ((trade.pnl || 0) > 0) current.wins += 1;
-    current.pnl += trade.pnl || 0;
+    current.pnl += getPnl(trade);
     symbolMap.set(trade.symbol, current);
   }
 
@@ -81,7 +86,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
     const current = dayOfWeekMap.get(day) || { trades: 0, wins: 0, pnl: 0 };
     current.trades += 1;
     if ((trade.pnl || 0) > 0) current.wins += 1;
-    current.pnl += trade.pnl || 0;
+    current.pnl += getPnl(trade);
     dayOfWeekMap.set(day, current);
   }
 
@@ -102,7 +107,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
     const current = hourMap.get(hour) || { trades: 0, wins: 0, pnl: 0 };
     current.trades += 1;
     if ((trade.pnl || 0) > 0) current.wins += 1;
-    current.pnl += trade.pnl || 0;
+    current.pnl += getPnl(trade);
     hourMap.set(hour, current);
   }
 
@@ -116,12 +121,7 @@ export function Analytics({ trades, stats }: AnalyticsProps) {
     .sort((a, b) => parseInt(a.hour) - parseInt(b.hour));
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
+    return formatCurrencyUtil(value, baseCurrency);
   };
 
   return (

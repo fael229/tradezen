@@ -24,6 +24,7 @@ export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
   const [journalFile, setJournalFile] = useState<File | null>(null);
   const [mt5File, setMt5File] = useState<File | null>(null);
   const [autoClear, setAutoClear] = useState(true);
+  const [importCurrency, setImportCurrency] = useState('USD');
 
   const [balanceEntries, setBalanceEntries] = useState<BalanceHistoryEntry[]>([]);
   const [journalEntries, setJournalEntries] = useState<OrderLogEntry[]>([]);
@@ -164,6 +165,7 @@ export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
       const trades: Trade[] = parsedTrades.map(trade => ({
         ...trade,
         symbol: trade.symbol.substring(0, 6),
+        currency: importCurrency, // Apply selected import currency
         id: uuidv4(),
         createdAt: now,
         updatedAt: now
@@ -699,6 +701,25 @@ export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
 
         {parsedTrades.length > 0 && (
           <div className="flex flex-col sm:flex-row justify-end items-center gap-4">
+            <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <span className="text-sm font-medium text-slate-700">Devise du compte :</span>
+              <select
+                value={importCurrency}
+                onChange={(e) => setImportCurrency(e.target.value)}
+                className="bg-white border border-slate-300 text-slate-900 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block p-2"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CHF">CHF</option>
+                <option value="CAD">CAD</option>
+                <option value="AUD">AUD</option>
+                <option value="USDC">USDC</option>
+                <option value="USDT">USDT</option>
+              </select>
+            </div>
+
             {onClear && (
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input

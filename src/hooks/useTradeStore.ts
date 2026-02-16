@@ -159,18 +159,42 @@ export function useTradeStore() {
   }, []);
 
   // Calculate statistics
-  const stats: TradeStats = calculateStats(trades);
-  const dailyStats: DailyStats[] = calculateDailyStats(trades);
+  const [preferredCurrency, setPreferredCurrency] = useState('USD');
+
+  useEffect(() => {
+    const savedCurrency = localStorage.getItem('currency') || 'USD';
+    setPreferredCurrency(savedCurrency);
+
+    // Listen for storage changes in case settings are updated in another tab/window
+    const handleStorageChange = () => {
+      const newCurrency = localStorage.getItem('currency') || 'USD';
+      setPreferredCurrency(newCurrency);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Custom event listener for same-tab updates from Settings
+    window.addEventListener('settings-changed', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('settings-changed', handleStorageChange);
+    };
+  }, []);
+
+  const stats: TradeStats = calculateStats(trades, preferredCurrency);
+  const dailyStats: DailyStats[] = calculateDailyStats(trades, preferredCurrency);
 
   return {
     trades,
     loading,
     stats,
     dailyStats,
+    preferredCurrency,
     addTrade,
     updateTrade,
     deleteTrade,
     bulkAddTrades,
+    loadTrades,
     clearAllTrades,
   };
 }

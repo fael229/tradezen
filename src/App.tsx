@@ -38,6 +38,7 @@ export function App() {
     loading: tradesLoading,
     stats,
     dailyStats,
+    preferredCurrency,
     addTrade,
     updateTrade,
     deleteTrade,
@@ -71,7 +72,7 @@ export function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard trades={trades} />;
+        return <Dashboard trades={trades} baseCurrency={preferredCurrency} />;
       case 'journal':
         return (
           <Journal
@@ -82,7 +83,7 @@ export function App() {
           />
         );
       case 'analytics':
-        return <Analytics trades={trades} stats={stats} dailyStats={dailyStats} />;
+        return <Analytics trades={trades} stats={stats} dailyStats={dailyStats} baseCurrency={preferredCurrency} />;
       case 'calendar':
         return <Calendar trades={trades} />;
       case 'symbols':
@@ -94,7 +95,7 @@ export function App() {
       case 'settings':
         return <Settings onClearData={clearAllTrades} />;
       default:
-        return <Dashboard trades={trades} />;
+        return <Dashboard trades={trades} baseCurrency={preferredCurrency} />;
     }
   };
 

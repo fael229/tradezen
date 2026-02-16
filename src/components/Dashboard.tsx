@@ -27,13 +27,17 @@ import type { Trade } from '../types/trade';
 import { cn } from '../utils/cn';
 import { calculateStats, calculateDailyStats } from '../utils/tradeAnalysis';
 
+import { convertCurrency } from '../utils/currencyConversion';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
+
 interface DashboardProps {
   trades: Trade[];
+  baseCurrency?: string;
 }
 
 type TimeRange = '7d' | '30d' | '90d' | 'ytd' | 'all';
 
-export function Dashboard({ trades }: DashboardProps) {
+export function Dashboard({ trades, baseCurrency = 'USD' }: DashboardProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
   const filteredTrades = useMemo(() => {
@@ -65,8 +69,8 @@ export function Dashboard({ trades }: DashboardProps) {
     });
   }, [trades, timeRange]);
 
-  const stats = useMemo(() => calculateStats(filteredTrades), [filteredTrades]);
-  const dailyStats = useMemo(() => calculateDailyStats(filteredTrades), [filteredTrades]);
+  const stats = useMemo(() => calculateStats(filteredTrades, baseCurrency), [filteredTrades, baseCurrency]);
+  const dailyStats = useMemo(() => calculateDailyStats(filteredTrades, baseCurrency), [filteredTrades, baseCurrency]);
 
   const recentTrades = filteredTrades.slice(0, 5);
 
@@ -82,17 +86,14 @@ export function Dashboard({ trades }: DashboardProps) {
   }, [] as { date: string; pnl: number; cumulative: number }[]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+    return formatCurrencyUtil(value, baseCurrency);
   };
 
   const formatPercent = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
+
+  const getPnl = (t: Trade) => convertCurrency(t.pnl || 0, t.currency || 'USD', baseCurrency);
 
   const timeRangeLabels: Record<TimeRange, string> = {
     '7d': 'Last 7 days',
@@ -328,9 +329,9 @@ export function Dashboard({ trades }: DashboardProps) {
                       <td className="py-3 px-2 text-right">
                         <span className={cn(
                           'font-semibold',
-                          (trade.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                          (getPnl(trade) || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                         )}>
-                          {trade.pnl !== null ? formatCurrency(trade.pnl) : '-'}
+                          {getPnl(trade) !== null ? formatCurrency(getPnl(trade)) : '-'}
                         </span>
                       </td>
                     </tr>

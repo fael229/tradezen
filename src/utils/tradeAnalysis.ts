@@ -1,6 +1,7 @@
 import type { Trade, TradeStats, DailyStats } from '../types/trade';
+import { convertCurrency } from './currencyConversion';
 
-export function calculateStats(trades: Trade[]): TradeStats {
+export function calculateStats(trades: Trade[], baseCurrency: string = 'USD'): TradeStats {
   const closedTrades = trades.filter(t => t.status === 'closed' && t.pnl !== null);
 
   if (closedTrades.length === 0) {
@@ -28,12 +29,15 @@ export function calculateStats(trades: Trade[]): TradeStats {
     };
   }
 
+  // Helper to get converted PnL
+  const getPnl = (t: Trade) => convertCurrency(t.pnl || 0, t.currency || 'USD', baseCurrency);
+
   const winningTrades = closedTrades.filter(t => (t.pnl || 0) > 0);
   const losingTrades = closedTrades.filter(t => (t.pnl || 0) < 0);
 
-  const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  const totalWins = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  const totalLosses = Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+  const totalPnl = closedTrades.reduce((sum, t) => sum + getPnl(t), 0);
+  const totalWins = winningTrades.reduce((sum, t) => sum + getPnl(t), 0);
+  const totalLosses = Math.abs(losingTrades.reduce((sum, t) => sum + getPnl(t), 0));
 
   const winRate = winningTrades.length / closedTrades.length;
   const averageWin = winningTrades.length > 0 ? totalWins / winningTrades.length : 0;
@@ -75,7 +79,7 @@ export function calculateStats(trades: Trade[]): TradeStats {
   let peakEquity = 0;
 
   // Returns for Sharpe/Sortino
-  const returns = sortedTrades.map(t => t.pnl || 0);
+  const returns = sortedTrades.map(t => getPnl(t));
   
   // Standard Deviation
   const meanReturn = totalPnl / closedTrades.length;
@@ -97,7 +101,7 @@ export function calculateStats(trades: Trade[]): TradeStats {
   const sqn = stdDev !== 0 ? Math.sqrt(closedTrades.length) * (meanReturn / stdDev) : 0;
 
   for (const trade of sortedTrades) {
-    const pnl = trade.pnl || 0;
+    const pnl = getPnl(trade);
     
     // Consecutive
     if (pnl > 0) {
@@ -150,8 +154,8 @@ export function calculateStats(trades: Trade[]): TradeStats {
     averageWin,
     averageLoss,
     profitFactor: totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? Infinity : 0,
-    largestWin: winningTrades.length > 0 ? Math.max(...winningTrades.map(t => t.pnl || 0)) : 0,
-    largestLoss: losingTrades.length > 0 ? Math.min(...losingTrades.map(t => t.pnl || 0)) : 0,
+    largestWin: winningTrades.length > 0 ? Math.max(...winningTrades.map(t => getPnl(t))) : 0,
+    largestLoss: losingTrades.length > 0 ? Math.min(...losingTrades.map(t => getPnl(t))) : 0,
     averageRRR: avgRRR,
     consecutiveWins: maxConsecutiveWins,
     consecutiveLosses: maxConsecutiveLosses,
@@ -165,7 +169,7 @@ export function calculateStats(trades: Trade[]): TradeStats {
   };
 }
 
-export function calculateDailyStats(trades: Trade[]): DailyStats[] {
+export function calculateDailyStats(trades: Trade[], baseCurrency: string = 'USD'): DailyStats[] {
     const closedTrades = trades.filter(t => t.status === 'closed' && t.exitTime);
 
     const dailyMap = new Map<string, { pnl: number; wins: number; total: number }>();
@@ -174,7 +178,9 @@ export function calculateDailyStats(trades: Trade[]): DailyStats[] {
         const date = new Date(trade.exitTime!).toISOString().split('T')[0];
         const current = dailyMap.get(date) || { pnl: 0, wins: 0, total: 0 };
 
-        current.pnl += trade.pnl || 0;
+        const pnl = convertCurrency(trade.pnl || 0, trade.currency || 'USD', baseCurrency);
+
+        current.pnl += pnl;
         current.total += 1;
         if ((trade.pnl || 0) > 0) current.wins += 1;
 
