@@ -12,6 +12,7 @@ export interface Trade {
   takeProfit: number | null;
   pnl: number | null;
   pnlPercent: number | null;
+  currency: string; // USD, EUR, USDC, etc.
   status: 'open' | 'closed' | 'cancelled';
   notes: string;
   tags: string[];

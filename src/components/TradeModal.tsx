@@ -23,6 +23,7 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
     stopLoss: '',
     takeProfit: '',
     status: 'open' as 'open' | 'closed' | 'cancelled',
+    currency: 'USD',
     notes: '',
     tags: [] as string[],
     strategy: '',
@@ -41,6 +42,7 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
         stopLoss: trade.stopLoss?.toString() || '',
         takeProfit: trade.takeProfit?.toString() || '',
         status: trade.status,
+        currency: trade.currency || 'USD',
         notes: trade.notes,
         tags: trade.tags,
         strategy: trade.strategy || '',
@@ -50,20 +52,20 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const entryPrice = parseFloat(formData.entryPrice);
     const exitPrice = formData.exitPrice ? parseFloat(formData.exitPrice) : null;
     const units = parseFloat(formData.units);
     const stopLoss = formData.stopLoss ? parseFloat(formData.stopLoss) : null;
     const takeProfit = formData.takeProfit ? parseFloat(formData.takeProfit) : null;
-    
+
     let pnl = null;
     let pnlPercent = null;
-    
+
     if (exitPrice !== null && formData.status === 'closed') {
       const direction = formData.direction;
-      pnl = direction === 'long' 
-        ? (exitPrice - entryPrice) * units 
+      pnl = direction === 'long'
+        ? (exitPrice - entryPrice) * units
         : (entryPrice - exitPrice) * units;
       pnlPercent = ((pnl / (entryPrice * units)) * 100);
     }
@@ -80,6 +82,7 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
       takeProfit,
       pnl,
       pnlPercent,
+      currency: formData.currency,
       status: formData.status,
       notes: formData.notes,
       tags: formData.tags,
@@ -277,6 +280,30 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
                 )}
               />
             </div>
+          </div>
+
+          {/* Currency */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
+            <select
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+              disabled={isReadOnly}
+              className={cn(
+                "w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                isReadOnly && "bg-slate-50"
+              )}
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="CHF">CHF</option>
+              <option value="CAD">CAD</option>
+              <option value="AUD">AUD</option>
+              <option value="USDC">USDC</option>
+              <option value="USDT">USDT</option>
+            </select>
           </div>
 
           {/* Strategy */}

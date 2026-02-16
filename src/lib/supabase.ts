@@ -111,6 +111,7 @@ function mapDbToTrade(data: any): Trade {
     takeProfit: data.take_profit,
     pnl: data.pnl,
     pnlPercent: data.pnl_percent,
+    currency: data.currency || 'USD',
     status: data.status,
     notes: data.notes || '',
     tags: data.tags || [],
@@ -135,6 +136,7 @@ function mapTradeToDb(trade: Partial<Trade>): any {
   if (trade.takeProfit !== undefined) dbTrade.take_profit = trade.takeProfit;
   if (trade.pnl !== undefined) dbTrade.pnl = trade.pnl;
   if (trade.pnlPercent !== undefined) dbTrade.pnl_percent = trade.pnlPercent;
+  if (trade.currency !== undefined) dbTrade.currency = trade.currency;
   if (trade.status !== undefined) dbTrade.status = trade.status;
   if (trade.notes !== undefined) dbTrade.notes = trade.notes;
   if (trade.tags !== undefined) dbTrade.tags = trade.tags;
@@ -159,6 +161,7 @@ CREATE TABLE IF NOT EXISTS trades (
   take_profit DECIMAL(20, 6),
   pnl DECIMAL(20, 6),
   pnl_percent DECIMAL(10, 4),
+  currency VARCHAR(10) DEFAULT 'USD',
   status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed', 'cancelled')),
   notes TEXT DEFAULT '',
   tags TEXT[] DEFAULT '{}',

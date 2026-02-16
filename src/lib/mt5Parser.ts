@@ -5,6 +5,17 @@ export function parseMT5Report(htmlContent: string): Omit<Trade, 'id' | 'created
     const doc = parser.parseFromString(htmlContent, 'text/html');
     const trades: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>[] = [];
 
+    // Try to detect currency from the report
+    // MT5 reports usually mention currency in the Account Information section
+    let detectedCurrency = 'USD'; // default
+
+    // Look for "Currency:" in the document
+    const bodyText = doc.body.textContent || '';
+    const currencyMatch = bodyText.match(/Currency[:\s]+(\w+)/i);
+    if (currencyMatch && currencyMatch[1]) {
+        detectedCurrency = currencyMatch[1].toUpperCase();
+    }
+
     // Find the Positions table header
     // Searching for <b>Positions</b> inside a div inside a th
     const headers = Array.from(doc.querySelectorAll('tr > th'));
@@ -91,6 +102,7 @@ export function parseMT5Report(htmlContent: string): Omit<Trade, 'id' | 'created
                         takeProfit: tp,
                         pnl: pnl,
                         pnlPercent: null, // to be calculated if needed
+                        currency: detectedCurrency,
                         status: 'closed',
                         notes: `Import MT5 #${cells[1].textContent?.trim()}`,
                         tags: ['MT5', 'Imported'],

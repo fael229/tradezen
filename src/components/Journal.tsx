@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Search,
+  Filter,
+  Plus,
+  TrendingUp,
+  TrendingDown,
   MoreVertical,
   Edit,
   Trash2,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Trade } from '../types/trade';
 import { cn } from '../utils/cn';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import { TradeModal } from './TradeModal';
 import { TradeDetails } from './TradeDetails';
 
@@ -35,20 +36,15 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
 
   const filteredTrades = trades.filter(trade => {
     const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          trade.notes.toLowerCase().includes(searchTerm.toLowerCase());
+      trade.notes.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDirection = filterDirection === 'all' || trade.direction === filterDirection;
     const matchesStatus = filterStatus === 'all' || trade.status === filterStatus;
     return matchesSearch && matchesDirection && matchesStatus;
   });
 
-  const formatCurrency = (value: number | null) => {
+  const formatCurrency = (value: number | null, currency: string = 'USD') => {
     if (value === null) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+    return formatCurrencyUtil(value, currency);
   };
 
   const formatDate = (date: string | null) => {
@@ -198,8 +194,8 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                 </tr>
               ) : (
                 filteredTrades.map((trade) => (
-                  <tr 
-                    key={trade.id} 
+                  <tr
+                    key={trade.id}
                     className="border-t border-slate-100 hover:bg-emerald-50/50 transition-colors cursor-pointer group"
                     onClick={(e) => handleRowClick(trade, e)}
                   >
@@ -212,8 +208,8 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                     <td className="py-4 px-4">
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium',
-                        trade.direction === 'long' 
-                          ? 'bg-emerald-100 text-emerald-700' 
+                        trade.direction === 'long'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-red-100 text-red-700'
                       )}>
                         {trade.direction === 'long' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -236,15 +232,15 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                         'font-semibold',
                         (trade.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                       )}>
-                        {formatCurrency(trade.pnl)}
+                        {formatCurrency(trade.pnl, trade.currency)}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <span className={cn(
                         'px-2 py-1 rounded-full text-xs font-medium',
                         trade.status === 'open' ? 'bg-blue-100 text-blue-700' :
-                        trade.status === 'closed' ? 'bg-slate-100 text-slate-700' :
-                        'bg-amber-100 text-amber-700'
+                          trade.status === 'closed' ? 'bg-slate-100 text-slate-700' :
+                            'bg-amber-100 text-amber-700'
                       )}>
                         {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
                       </span>
@@ -259,7 +255,7 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                       >
                         <MoreVertical className="w-4 h-4 text-slate-500" />
                       </button>
-                      
+
                       {activeMenu === trade.id && (
                         <div className="absolute right-4 top-full mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-10 min-w-[120px]">
                           <button
