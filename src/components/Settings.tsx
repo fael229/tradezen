@@ -59,7 +59,7 @@ export function Settings({ onClearData }: SettingsProps) {
     'Australia/Sydney',
   ];
 
-  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'USDC', 'USDT'];
+  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'USDC', 'USDT', 'USC'];
 
   return (
     <div className="space-y-6 max-w-3xl">

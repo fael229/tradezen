@@ -13,6 +13,7 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
     USDT: 'USDT ',
     BTC: '₿',
     ETH: 'Ξ',
+    USC: '¢',
 };
 
 export function formatCurrency(value: number, currency: string = 'USD'): string {
@@ -35,7 +36,7 @@ export function formatCurrency(value: number, currency: string = 'USD'): string 
             maximumFractionDigits: 6
         }).format(absValue);
     }
-    // Default for most fiat currencies
+    // For cent accounts, we might want 0 decimals if they represent integer cents, but usually they allow fractional cents too. Let's stick to 2.
     else {
         formatted = new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
@@ -46,8 +47,8 @@ export function formatCurrency(value: number, currency: string = 'USD'): string 
     const sign = value < 0 ? '-' : '';
 
     // For currencies with symbol at the end
-    if (['CHF', 'USDC', 'USDT'].includes(currency.toUpperCase())) {
-        return `${sign}${formatted} ${currency}`;
+    if (['CHF', 'USDC', 'USDT', 'USC'].includes(currency.toUpperCase())) {
+        return `${sign}${formatted} ${currency === 'USC' ? '¢' : currency}`;
     }
 
     return `${sign}${symbol}${formatted}`;

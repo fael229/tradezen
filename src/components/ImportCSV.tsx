@@ -717,6 +717,7 @@ export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
                 <option value="AUD">AUD</option>
                 <option value="USDC">USDC</option>
                 <option value="USDT">USDT</option>
+                <option value="USC">USC (Cents)</option>
               </select>
             </div>
 
@@ -731,7 +732,7 @@ export default function ImportCSV({ onImport, onClear }: ImportCSVProps) {
                 <span className="text-sm text-slate-700">Supprimer les données existantes avant l'import</span>
               </label>
             )}
-            
+
             <button
               onClick={handleImport}
               disabled={importing}

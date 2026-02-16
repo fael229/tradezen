@@ -303,6 +303,7 @@ export function TradeModal({ trade, mode, onClose, onSave }: TradeModalProps) {
               <option value="AUD">AUD</option>
               <option value="USDC">USDC</option>
               <option value="USDT">USDT</option>
+              <option value="USC">USC (Cents)</option>
             </select>
           </div>
 

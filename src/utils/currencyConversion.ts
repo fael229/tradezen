@@ -19,6 +19,7 @@ export const DEFAULT_EXCHANGE_RATES: ExchangeRates = {
     USDT: 1,
     BTC: 50000, // Approximate
     ETH: 3000,  // Approximate
+    USC: 0.01,  // US Cents (100 USC = 1 USD)
 };
 
 export function convertCurrency(
