@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Trade } from '../types/trade';
 import { cn } from '../utils/cn';
+import { convertCurrency } from '../utils/currencyConversion';
 import { formatCurrency as formatCurrencyUtil } from '../utils/currency';
 import { TradeModal } from './TradeModal';
 import { TradeDetails } from './TradeDetails';
@@ -22,9 +23,10 @@ interface JournalProps {
   onAddTrade: (trade: Omit<Trade, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateTrade: (id: string, updates: Partial<Trade>) => void;
   onDeleteTrade: (id: string) => void;
+  baseCurrency?: string;
 }
 
-export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: JournalProps) {
+export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade, baseCurrency = 'USD' }: JournalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDirection, setFilterDirection] = useState<'all' | 'long' | 'short'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
@@ -181,6 +183,7 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                 <th className="text-right py-4 px-4 text-xs font-semibold text-slate-500 uppercase">Exit Price</th>
                 <th className="text-right py-4 px-4 text-xs font-semibold text-slate-500 uppercase">Units</th>
                 <th className="text-right py-4 px-4 text-xs font-semibold text-slate-500 uppercase">P&L</th>
+                <th className="text-right py-4 px-4 text-xs font-semibold text-slate-500 uppercase">REEL ({baseCurrency})</th>
                 <th className="text-center py-4 px-4 text-xs font-semibold text-slate-500 uppercase">Status</th>
                 <th className="text-center py-4 px-4 text-xs font-semibold text-slate-500 uppercase">Actions</th>
               </tr>
@@ -188,7 +191,7 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
             <tbody>
               {filteredTrades.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-500">
+                  <td colSpan={11} className="py-12 text-center text-slate-500">
                     No trades found. Add your first trade or import from CSV.
                   </td>
                 </tr>
@@ -233,6 +236,14 @@ export function Journal({ trades, onAddTrade, onUpdateTrade, onDeleteTrade }: Jo
                         (trade.pnl || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'
                       )}>
                         {formatCurrency(trade.pnl, trade.currency)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className={cn(
+                        'font-semibold',
+                        (convertCurrency(trade.pnl || 0, trade.currency || 'USD', baseCurrency)) >= 0 ? 'text-emerald-600' : 'text-red-600'
+                      )}>
+                        {trade.pnl !== null ? formatCurrency(convertCurrency(trade.pnl || 0, trade.currency || 'USD', baseCurrency), baseCurrency) : '-'}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center">

@@ -85,6 +85,7 @@ export function App() {
             onAddTrade={addTrade}
             onUpdateTrade={updateTrade}
             onDeleteTrade={deleteTrade}
+            baseCurrency={preferredCurrency}
           />
         );
       case 'analytics':
